@@ -1,16 +1,37 @@
-# Python Backend for Video Streaming
+# Raspberry Pi 5 Gesture App
 
-A FastAPI-based Python backend that provides video streaming capabilities for your Next.js Raspberry Pi 5 dashboard using OpenCV.
+A comprehensive real-time video streaming and system monitoring dashboard built for Raspberry Pi 5, featuring high-performance camera streaming, system monitoring, and gesture recognition capabilities.
 
-## Features
+## 🚀 Features
 
-- 📹 **Real-time video streaming** from Raspberry Pi camera
+### Video Streaming
+- 📹 **High-performance video streaming** (60+ FPS) from Raspberry Pi camera
 - 🎛️ **Configurable stream settings** (resolution, FPS, quality)
 - 📸 **Single image capture** functionality
 - 🔄 **Test pattern fallback** when camera is unavailable
-- 🌐 **CORS enabled** for frontend integration
-- 📊 **Status monitoring** endpoints
-- 🛡️ **Error handling** and graceful degradation
+- ⚡ **Hardware-optimized** for maximum performance
+
+### System Monitoring
+- 📊 **Real-time CPU monitoring** with per-core usage display
+- 🌡️ **Temperature monitoring** with color-coded alerts
+- 💾 **Memory usage tracking** with visual progress bars
+- 🔄 **Auto-refresh** every 5 seconds for live updates
+
+### Frontend Dashboard
+- 🎨 **Modern Next.js interface** with responsive design
+- 📱 **Mobile-friendly** layout
+- 📡 **Real-time status updates**
+- 🎯 **Intuitive controls** for system management
+
+## 🛠️ Project Structure
+
+```
+python-backend/
+├── main.py              # FastAPI application
+├── requirements.txt     # Python dependencies
+├── README.md           # This file
+└── test_camera.py      # Camera test script (optional)
+```
 
 ## Prerequisites
 
@@ -175,16 +196,6 @@ sudo netstat -tulpn | grep :8000
 ```
 
 ## Development
-
-### Project Structure
-
-```
-python-backend/
-├── main.py              # FastAPI application
-├── requirements.txt     # Python dependencies
-├── README.md           # This file
-└── test_camera.py      # Camera test script (optional)
-```
 
 ### Adding New Features
 
