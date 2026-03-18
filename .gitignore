@@ -177,4 +177,8 @@ secrets.json
 
 # Project specific
 start_system.sh.bak
-_oldgest.py 
+_oldgest.py
+
+# GPIO (Raspberry Pi hardware scripts)
+gpio/
+gpio.py

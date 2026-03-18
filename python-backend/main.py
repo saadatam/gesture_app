@@ -9,6 +9,7 @@ from typing import Optional
 import uvicorn
 from pydantic import BaseModel
 from collections import deque
+import socket
 
 # Try to import Picamera2 for libcamera support
 try:
@@ -21,12 +22,17 @@ except ImportError:
     PICAMERA2_AVAILABLE = False
     print("[DEBUG] Picamera2 import: FAILED")
 
+
+hostname = socket.gethostname()
+ip_address = socket.gethostbyname(hostname)
+
 app = FastAPI(title="Raspberry Pi Video Stream API", version="1.0.0")
+# print("******ip******", ip_address)
 
 # CORS middleware to allow frontend to connect
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://192.168.1.211:3000"],  # Next.js app
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", f"http://192.168.1.246:3000"],  # Next.js app
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -40,7 +46,7 @@ camera_lock = threading.Lock()
 is_streaming = False
 
 # Add to global variables
-fps_counter = deque(maxlen=30)  # Track last 30 frames
+fps_counter = deque(maxlen=60)  # Track last 30 frames
 last_frame_time = time.time()
 
 class CameraSettings(BaseModel):
@@ -342,10 +348,13 @@ async def shutdown_event():
         print("📷 Camera released")
 
 if __name__ == "__main__":
+
+    print(f"API available at: http://{ip_address}:8000")
+
     print("🚀 Starting Raspberry Pi Video Stream API...")
-    print("📡 API will be available at: http://localhost:8000")
-    print("📹 Stream endpoint: http://localhost:8000/stream")
-    print("📱 Frontend should connect to: http://localhost:3000")
+    print(f"📡 API will be available at: http://{ip_address}:8000")
+    print(f"📹 Stream endpoint: http://{ip_address}:8000/stream")
+    print(f"📱 Frontend should connect to: http://{ip_address}:3000")
     
     uvicorn.run(
         "main:app",

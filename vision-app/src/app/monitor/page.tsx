@@ -35,7 +35,7 @@ export default function MonitorPage() {
     };
 
     fetchStats();
-    const interval = setInterval(fetchStats, 5000); // update every 5s
+    const interval = setInterval(fetchStats, 500); // update every 2s
     return () => clearInterval(interval);
   }, []);
 

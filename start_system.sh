@@ -186,13 +186,16 @@ echo "Frontend log: $(pwd)/frontend.log"
 echo ""
 echo "================================================"
 print_success "System started successfully!"
+
+IP=$(hostname -I | awk '{print $1}')
+
 echo ""
-echo "📡 Backend API: http://localhost:8000"
-echo "📱 Frontend: http://localhost:3000"
-echo "📹 Video Stream: http://localhost:8000/stream"
+echo "📡 Backend API: http://$IP:8000"
+echo "📱 Frontend: http://$IP:3000"
+echo "📹 Video Stream: http://$IP:8000/stream"
 echo ""
 echo "Press Ctrl+C to stop all services"
 echo "================================================"
-
+# 
 # Wait for user to stop
 wait 

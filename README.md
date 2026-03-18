@@ -27,11 +27,18 @@ A comprehensive real-time video streaming and system monitoring dashboard built 
 
 ```
 python-backend/
-├── main.py              # FastAPI application
+├── main.py              # FastAPI application (camera + streaming API)
 ├── requirements.txt     # Python dependencies
-├── README.md           # This file
 └── test_camera.py      # Camera test script (optional)
+
+vision-app/
+└── README.md            # Frontend setup instructions
+
+start_system.sh         # Starts backend + frontend together
 ```
+
+## GPIO (Optional)
+The Raspberry Pi GPIO scripts in `gpio/` (and `gpio.py` if present) are excluded from git via `.gitignore`.
 
 ## Prerequisites
 
@@ -39,6 +46,7 @@ python-backend/
 2. **Python 3.8+**
 3. **OpenCV** and camera drivers
 4. **FastAPI** and dependencies
+5. **Node.js + npm** (for the Next.js frontend)
 
 ## Installation
 
@@ -76,14 +84,25 @@ python3 -c "import cv2; cap = cv2.VideoCapture(0); print('Camera available:', ca
 
 ## Usage
 
-### Start the Backend Server
+### Start the Full Dashboard System
 
 ```bash
-# Run the FastAPI server
-python3 main.py
+# Starts backend + frontend together
+./start_system.sh
 ```
 
-The server will start on `http://localhost:8000`
+Expected endpoints:
+- Backend: `http://<pi-ip>:8000`
+- Frontend: `http://<pi-ip>:3000`
+- Video stream (only after starting the stream): `http://<pi-ip>:8000/stream`
+
+### (Optional) Start Backend Manually
+
+```bash
+cd python-backend
+source ../env/bin/activate
+python main.py
+```
 
 ### API Endpoints
 
@@ -94,9 +113,11 @@ The server will start on `http://localhost:8000`
 - **GET** `/status` - Get camera and streaming status
 - **POST** `/start-stream` - Start video streaming
 - **POST** `/stop-stream` - Stop video streaming
+- **GET** `/camera-info` - Debug camera information
+- **GET** `/debug-colors` - Debug sample pixel colors (camera capture)
 
 #### Video Endpoints
-- **GET** `/stream` - Video stream (MJPEG format)
+- **GET** `/stream` - Video stream (multipart MJPEG). Requires calling `/start-stream` first.
 - **GET** `/capture` - Capture single image
 
 ### Example API Usage
@@ -111,7 +132,7 @@ curl http://localhost:8000/status
 # Start streaming
 curl -X POST http://localhost:8000/start-stream \
   -H "Content-Type: application/json" \
-  -d '{"width": 640, "height": 480, "fps": 30, "quality": 80}'
+  -d '{"width": 640, "height": 480, "fps": 60, "quality": 70}'
 
 # Stop streaming
 curl -X POST http://localhost:8000/stop-stream
@@ -124,7 +145,7 @@ curl http://localhost:8000/capture -o captured_image.jpg
 
 The backend is designed to work with the Next.js frontend. The frontend will:
 
-1. **Connect to the backend** on `http://localhost:8000`
+1. **Connect to the backend** using `NEXT_PUBLIC_API_URL` (frontend default: `http://{IP_Address}:8000`)
 2. **Start/stop streams** via API calls
 3. **Display video stream** using MJPEG format
 4. **Show status** and handle errors
@@ -132,8 +153,8 @@ The backend is designed to work with the Next.js frontend. The frontend will:
 ### Frontend Configuration
 
 The Next.js app expects the backend to be running on:
-- **URL**: `http://localhost:8000`
-- **CORS**: Enabled for `http://localhost:3000`
+- **URL**: set `NEXT_PUBLIC_API_URL` in `vision-app` (see `vision-app/README.md`). Default is `http://{IP_ADDRESS}:8000`.
+- **CORS**: the backend must allow your frontend origin. Update `python-backend/main.py` `allow_origins` to include `http://<pi-ip>:3000` (or `http://localhost:3000` if running locally).
 
 ## Configuration
 
@@ -145,17 +166,12 @@ You can customize the video stream by modifying the `CameraSettings` class:
 class CameraSettings(BaseModel):
     width: int = 640      # Video width
     height: int = 480     # Video height
-    fps: int = 30         # Frames per second
-    quality: int = 80     # JPEG quality (1-100)
+    fps: int = 60         # Frames per second
+    quality: int = 70     # JPEG quality (1-100)
 ```
 
-### Camera Index
-
-The backend uses camera index `0` by default. If you have multiple cameras, you can change this in the `get_camera()` function:
-
-```python
-camera = cv2.VideoCapture(0)  # Change 0 to 1, 2, etc.
-```
+### Camera Notes (Picamera2)
+This backend uses `picamera2` when available. If Picamera2 is not available, it falls back to generating a test-pattern frame instead of failing.
 
 ## Troubleshooting
 
