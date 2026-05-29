@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useConnection } from "@/context/ConnectionContext";
 import { apiService, type StreamStatus, type CameraSettings } from "@/lib/api";
 
 export interface UseApiState {
@@ -18,6 +19,7 @@ export interface UseApiActions {
 }
 
 export function useApi(): UseApiState & UseApiActions {
+  const { connectionVersion, isReady } = useConnection();
   const [state, setState] = useState<UseApiState>({
     isBackendConnected: null,
     streamStatus: null,
@@ -192,10 +194,19 @@ export function useApi(): UseApiState & UseApiActions {
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
-  // Initial connection check
+  // Initial connection check and reconnect when mode changes (after client hydration)
   useEffect(() => {
+    if (!isReady) return;
+
+    setState((prev) => ({
+      ...prev,
+      isBackendConnected: null,
+      streamStatus: null,
+      isStreaming: false,
+      error: null,
+    }));
     checkBackendConnection();
-  }, [checkBackendConnection]);
+  }, [checkBackendConnection, connectionVersion, isReady]);
 
   // Periodic status check
   useEffect(() => {

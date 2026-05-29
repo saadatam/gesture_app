@@ -64,16 +64,17 @@ def get_camera():
                 print("[DEBUG] Attempting to initialize Picamera2...")
                 picam2 = Picamera2()
                 
-                # Optimized configuration for high FPS
+                # Balanced configuration — auto exposure must stay enabled for visible frames
                 picam2_config = picam2.create_video_configuration(
                     main={"size": (640, 480), "format": "RGB888"},
                     controls={
-                        "FrameDurationLimits": (16666, 16666),  # 60fps max
-                        "NoiseReductionMode": 0,  # Disable noise reduction for speed
-                        "AeEnable": False,  # Disable auto-exposure for speed
-                        "AwbEnable": False,  # Disable auto-white-balance for speed
+                        # "FrameDurationLimits": (16666, 16666),  # 60fps max
+                        # "NoiseReductionMode": 0,  # Disable noise reduction for speed
+                        # "AeEnable": False,  # Disable auto-exposure for speed
+                        # "AwbEnable": False,  # Disable auto-white-balance for speed
+                        "FrameDurationLimits": (33333, 33333),  # ~30fps
                     },
-                    buffer_count=8,  # Increase buffer count
+                    buffer_count=4,
                     queue=True
                 )
                 
@@ -81,6 +82,11 @@ def get_camera():
                 picam2.configure(picam2_config)
                 picam2.start()
                 print("✅ Picamera2 initialized successfully")
+
+                # Warm up auto-exposure before streaming
+                for _ in range(5):
+                    picam2.capture_array()
+                    time.sleep(0.1)
                 
                 # Test capture to verify camera is working
                 try:
@@ -123,44 +129,52 @@ def generate_test_frame(width: int = 640, height: int = 480):
     
     return frame
 
+def encode_frame_to_jpeg(frame: np.ndarray, quality: int) -> bytes:
+    """Encode an RGB or BGR frame to JPEG bytes."""
+    if frame.ndim == 3 and frame.shape[2] == 3:
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), quality]
+    _, buffer = cv2.imencode(".jpg", frame, encode_param)
+    return buffer.tobytes()
+
 def generate_frames(settings: CameraSettings):
     """Generate video frames for streaming"""
     global is_streaming
     cam = get_camera()
+    frame_interval = 1.0 / max(settings.fps, 1)
     
     while is_streaming:
+        loop_start = time.time()
         try:
             if PICAMERA2_AVAILABLE and cam:
                 frame = cam.capture_array()
-                # Only resize frame if needed
                 if frame.shape[1] != settings.width or frame.shape[0] != settings.height:
                     frame = cv2.resize(frame, (settings.width, settings.height))
-                # Encode frame to JPEG
-                encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), settings.quality]
-                _, buffer = cv2.imencode('.jpg', frame, encode_param)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+                jpeg = encode_frame_to_jpeg(frame, settings.quality)
             else:
                 frame = generate_test_frame(settings.width, settings.height)
-                # Only resize frame if needed
-                if frame.shape[1] != settings.width or frame.shape[0] != settings.height:
-                    frame = cv2.resize(frame, (settings.width, settings.height))
-                # Encode frame to JPEG
                 encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), settings.quality]
-                _, buffer = cv2.imencode('.jpg', frame, encode_param)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+                _, buffer = cv2.imencode(".jpg", frame, encode_param)
+                jpeg = buffer.tobytes()
+
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + jpeg + b"\r\n"
+            )
         except Exception as e:
             print(f"Error generating frame: {e}")
             frame = generate_test_frame(settings.width, settings.height)
-            # Only resize frame if needed
-            if frame.shape[1] != settings.width or frame.shape[0] != settings.height:
-                frame = cv2.resize(frame, (settings.width, settings.height))
-            # Encode frame to JPEG
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), settings.quality]
-            _, buffer = cv2.imencode('.jpg', frame, encode_param)
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            _, buffer = cv2.imencode(".jpg", frame, encode_param)
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n"
+            )
+
+        elapsed = time.time() - loop_start
+        sleep_time = frame_interval - elapsed
+        if sleep_time > 0:
+            time.sleep(sleep_time)
 
 @app.get("/")
 async def root():
@@ -209,7 +223,11 @@ async def start_stream(settings: CameraSettings):
     with camera_lock:
         if is_streaming:
             raise HTTPException(status_code=400, detail="Stream already running")
-        
+
+        cam = get_camera()
+        if PICAMERA2_AVAILABLE and cam is None:
+            raise HTTPException(status_code=503, detail="Camera not available")
+
         is_streaming = True
         print(f"🎬 Starting video stream: {settings.width}x{settings.height} @ {settings.fps}fps")
     
@@ -253,10 +271,9 @@ async def capture_image():
     try:
         if PICAMERA2_AVAILABLE and cam:
             frame = cam.capture_array()
-            # Only encode frame
-            _, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+            jpeg = encode_frame_to_jpeg(frame, 90)
             return StreamingResponse(
-                iter([buffer.tobytes()]),
+                iter([jpeg]),
                 media_type="image/jpeg"
             )
         else:

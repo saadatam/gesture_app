@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useEffect, useState } from "react";
 import Link from "next/link";
+import { useConnection } from "@/context/ConnectionContext";
 import { useApi } from "@/hooks/useApi";
 import { apiService, apiUtils } from "@/lib/api";
 
@@ -8,6 +9,7 @@ export default function VideoPage() {
   const videoRef = useRef<HTMLImageElement>(null);
   const [isVideoLoading, setIsVideoLoading] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const { connectionVersion } = useConnection();
   const {
     isBackendConnected,
     streamStatus,
@@ -34,7 +36,7 @@ export default function VideoPage() {
         setVideoError(null);
       }
     }
-  }, [isStreaming]);
+  }, [isStreaming, connectionVersion]);
 
   const handleStartStream = async () => {
     await startStream();
